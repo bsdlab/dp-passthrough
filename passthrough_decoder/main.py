@@ -11,7 +11,7 @@ from dareplane_utils.stream_watcher.lsl_stream_watcher import (
 from passthrough_decoder.utils.logging import logger
 
 
-CHANNEL_TO_PASS = 6
+CHANNEL_TO_PASS = 1
 
 
 def init_lsl_outlet(cfg: dict) -> pylsl.StreamOutlet:
