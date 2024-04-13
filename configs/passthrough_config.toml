@@ -1,10 +1,10 @@
 [stream_to_query]
 stream = "PICOSTREAM"
 # stream = "ct_bic"
-buffer_size_s = 2.5
+buffer_size_s = 0.5
 [lsl_outlet]
 name="decoder_output"
-nominal_freq_hz = "derive"       # either a float or "derive" -> take same as input
+nominal_freq_hz = "derive"      # either a float or "derive" -> take same as input
 format = "float32"
 type="decoder_output"
-initial_delay_s = 5.0           # time to wait until first sample is passed further down the pipe, pass zeros until then
+initial_delay_s = 1.0           # time to wait until first sample is passed further down the pipe, pass zeros until then
