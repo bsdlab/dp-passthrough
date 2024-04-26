@@ -10,11 +10,16 @@ from dareplane_utils.stream_watcher.lsl_stream_watcher import (
     StreamWatcher,
     pylsl_xmlelement_to_dict,
 )
+
+from dareplane_utils.general.ringbuffer import RingBuffer
+from dareplane_utils.general.time import sleep_s
+
 from passthrough_decoder.utils.logging import logger
 from passthrough_decoder.utils.time import sleep_s
 
 
-CHANNEL_TO_PASS = 1
+# Start counting at 1
+CHANNEL_TO_PASS = 9
 
 
 def init_lsl_outlet(cfg: dict) -> pylsl.StreamOutlet:
@@ -48,6 +53,15 @@ def connect_stream_watcher(config: dict) -> StreamWatcher:
     )
     sw.connect_to_stream()
 
+    # If we connect to the AOStream, we need to hand-tune the buffer, as the
+    # provided sfreq in the LSL info is false.
+    n_samples = int(config["stream_to_query"]["buffer_size_s"] * 22_000)
+    sw.ring_buffer = RingBuffer((n_samples, len(sw.channel_names)))
+    sw.buffer = sw.ring_buffer.buffer
+    sw.buffer_t = sw.ring_buffer.buffer_t
+    sw.last_t = sw.ring_buffer.last_t
+    sw.curr_i = sw.ring_buffer.curr_i
+
     # if the outlet config is to be derived, calc from here
     if config["lsl_outlet"]["nominal_freq_hz"] == "derive":
         inlet_info = pylsl_xmlelement_to_dict(sw.inlet.info())
@@ -67,34 +81,28 @@ def main(
         True if config["lsl_outlet"]["nominal_freq_hz"] == "derive" else False
     )
     sw = connect_stream_watcher(config)
+
+    logger.debug("StreamWatcher is connected")
     outlet = init_lsl_outlet(config)
 
     tlast = pylsl.local_clock()
     tstart = time.time_ns()
 
     # Two while stages for performance
+    logger.debug("Starting passthrough loop")
+
+    # do the initial delay separately
     while (
-        not stop_event.is_set()
-        and time.time_ns() - tstart
+        time.time_ns() - tstart
         < config["lsl_outlet"]["initial_delay_s"] * 10**9
     ):
-        sw.update()
-        req_samples = int(
-            config["lsl_outlet"]["nominal_freq_hz"]
-            * (pylsl.local_clock() - tlast)
-        )
+        sleep_s(config["lsl_outlet"]["initial_delay_s"] * 0.5)
+    logger.debug(f"Initial delay of {config["lsl_outlet"]["initial_delay_s"]=}")
 
-        # This is only correct if the nominal_freq_hz is derived from the source stream
-        if req_samples > 0 and sw.n_new > 0:
-            for s in sw.unfold_buffer()[-sw.n_new :, 0]:
-                outlet.push_sample([0])
-            sw.n_new = 0
-            tlast = pylsl.local_clock()
+    stop_event.clear()
 
-    if derived:
-        derived_loop(sw, config, stop_event, outlet)
-    else:
-        nominal_srate_loop(sw, config, stop_event, outlet)
+    # Always use the derived loop version for the 
+    derived_loop(sw, config, stop_event, outlet)
 
 
 def derived_loop(
@@ -117,14 +125,18 @@ def derived_loop(
         # This is only correct if the nominal_freq_hz is derived from the source stream
         if req_samples > 0 and sw.n_new > 0:
             # print(f"Pushing: {req_samples=}, from {sw.n_new=}")
-
+            # logger.debug(f"Pushing: {sw.unfold_buffer()[-sw.n_new:, CHANNEL_TO_PASS -1]}")
             tlast = pylsl.local_clock()
-            for s in sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1]:
-                outlet.push_sample([s])
+
+            # push rectified version of data for the AO experiment as we need to limit CPU load for fair benchmarking
+            # for s in sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1]:
+            med = np.median(sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1])
+            for s in range(req_samples):
+                outlet.push_sample([med])
             sw.n_new = 0
 
-            # dsleep = 0.95 / config["lsl_outlet"]["nominal_freq_hz"]
-            # sleep_s(dsleep)
+            dsleep = 0.95 / config["lsl_outlet"]["nominal_freq_hz"]
+            sleep_s(dsleep)
 
 
 def nominal_srate_loop(
@@ -133,7 +145,7 @@ def nominal_srate_loop(
     stop_event: threading.Event,
     outlet: pylsl.StreamOutlet,
 ):
-    """Loop for pushing data with derived nominal_freq_hz"""
+    """Loop for pushing data with provided nominal_freq_hz"""
 
     srate = config["lsl_outlet"]["nominal_freq_hz"]
 
@@ -155,9 +167,11 @@ def nominal_srate_loop(
             q = np.floor(sw.n_new / req_samples).astype(int)
 
             if q > 1:
+                logger.debug(f"Decimating with {q=}")
                 chunk_d = decimate(chunk, q, ftype="fir")
                 outlet.push_chunk(list(chunk_d)[-req_samples:])
             else:
+                logger.debug(f"Pushing: {chunk[-1]=}")
                 outlet.push_sample([chunk[-1]])
 
             # for s in :
