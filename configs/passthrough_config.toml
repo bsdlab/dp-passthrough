@@ -1,7 +1,7 @@
 [stream_to_query]
-stream = "AODataStream"
+# stream = "AODataStream"
 # stream = "PICOSTREAM"
-# stream = "ct_bic"
+stream = "ct_bic"
 buffer_size_s = 0.5
 [lsl_outlet]
 name="decoder_output"
