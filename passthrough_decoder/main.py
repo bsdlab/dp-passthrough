@@ -114,33 +114,39 @@ def derived_loop(
 ):
     """Loop for pushing data with derived nominal_freq_hz"""
 
-    tlast = pylsl.local_clock()
+    tstart = pylsl.local_clock()
+    sent = 0
+    dsleep = 0.2 / config["lsl_outlet"]["nominal_freq_hz"]
+
+    print(f"{config["lsl_outlet"]["nominal_freq_hz"]=}")
 
     while not stop_event.is_set():
         sw.update()
         req_samples = int(
             config["lsl_outlet"]["nominal_freq_hz"]
-            * (pylsl.local_clock() - tlast)
-        )
+            * (pylsl.local_clock() - tstart)
+        ) - sent
 
         # This is only correct if the nominal_freq_hz is derived from the source stream
         if req_samples > 0 and sw.n_new > 0:
-            # print(f"Pushing: {req_samples=}, from {sw.n_new=}")
+            # logger.debug(f"Pushing: {req_samples=}, from {sw.n_new=}")
             # logger.debug(f"Pushing: {sw.unfold_buffer()[-sw.n_new:, CHANNEL_TO_PASS -1]}")
-            tlast = pylsl.local_clock()
-
             # push rectified version of data for the AO experiment as we need to limit CPU load for fair benchmarking
             # for s in sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1]:
-            med = np.median(sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1])
+            
+            data  = sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1]
+            med = np.median(data)
+
             for s in range(req_samples):
                 outlet.push_sample([med])
+
+            sent += req_samples
             sw.n_new = 0
+        
+        sleep_s(dsleep)
 
-            dsleep = 0.95 / config["lsl_outlet"]["nominal_freq_hz"]
-            sleep_s(dsleep)
 
-
-def nominal_srate_loop(
+def decomission_nominal_srate_loop(
     sw: StreamWatcher,
     config: dict,
     stop_event: threading.Event,
@@ -150,14 +156,14 @@ def nominal_srate_loop(
 
     srate = config["lsl_outlet"]["nominal_freq_hz"]
 
-    tlast = pylsl.local_clock()
-
+    tstart = pylsl.local_clock()
+    sent = 0
+    dsleep = 0.95 / srate 
     while not stop_event.is_set():
         sw.update()
 
         # this is the number of samples that should be passed on
-        req_samples = int(srate * (pylsl.local_clock() - tlast))
-
+        req_samples = int(srate * (pylsl.local_clock() - tlast)) - sent
         # This is only correct if the nominal_freq_hz is derived from the source stream
         if (
             req_samples > 0 and sw.n_new > req_samples
@@ -179,10 +185,10 @@ def nominal_srate_loop(
             #     outlet.push_sample([s])
 
             sw.n_new = 0
-            tlast = pylsl.local_clock()
+            sent += req_samples
 
-            # sleep_s to free up a bit of compute
-            sleep_s((1 / srate) * 0.95)
+        # sleep_s to free up a bit of compute
+        sleep_s((1 / srate) * 0.9)
 
 
 def get_main_thread() -> tuple[threading.Thread, threading.Event]:
