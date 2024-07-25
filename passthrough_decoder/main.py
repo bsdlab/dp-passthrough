@@ -19,7 +19,7 @@ from passthrough_decoder.utils.time import sleep_s
 
 
 # Start counting at 1
-CHANNEL_TO_PASS = 9
+CHANNEL_TO_PASS = 3
 
 
 def init_lsl_outlet(cfg: dict) -> pylsl.StreamOutlet:
