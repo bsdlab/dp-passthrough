@@ -20,7 +20,7 @@ from passthrough_decoder.utils.time import sleep_s
 
 # Start counting at 1
 # CHANNEL_TO_PASS = 9   # for AO
-CHANNEL_TO_PASS = 3     # for CorTec
+CHANNEL_TO_PASS = 6     # for CorTec  6 -> after change, 3 for original recording (3 ping broke of, so no longer useable)
 
 
 def init_lsl_outlet(cfg: dict) -> pylsl.StreamOutlet:
