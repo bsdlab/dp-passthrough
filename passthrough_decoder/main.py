@@ -1,22 +1,20 @@
-import time
 import threading
-import tomllib
-import pylsl
+import time
 
 import numpy as np
-from scipy.signal import decimate
-from fire import Fire
+import pylsl
+import tomllib
+from dareplane_utils.general.ringbuffer import RingBuffer
+from dareplane_utils.general.time import sleep_s
 from dareplane_utils.stream_watcher.lsl_stream_watcher import (
     StreamWatcher,
     pylsl_xmlelement_to_dict,
 )
-
-from dareplane_utils.general.ringbuffer import RingBuffer
-from dareplane_utils.general.time import sleep_s
+from fire import Fire
+from scipy.signal import decimate
 
 from passthrough_decoder.utils.logging import logger
 from passthrough_decoder.utils.time import sleep_s
-
 
 # Start counting at 1
 CHANNEL_TO_PASS = 3
@@ -72,36 +70,29 @@ def connect_stream_watcher(config: dict) -> StreamWatcher:
     return sw
 
 
-def main(
-    stop_event: threading.Event = threading.Event(), logger_level: int = 10
-):
+def main(stop_event: threading.Event = threading.Event(), logger_level: int = 10):
     logger.setLevel(logger_level)
     config = tomllib.load(open("./configs/passthrough_config.toml", "rb"))
-    derived = (
-        True if config["lsl_outlet"]["nominal_freq_hz"] == "derive" else False
-    )
+    # derived = True if config["lsl_outlet"]["nominal_freq_hz"] == "derive" else False
     sw = connect_stream_watcher(config)
 
     logger.debug("StreamWatcher is connected")
     outlet = init_lsl_outlet(config)
 
-    tlast = pylsl.local_clock()
+    # tlast = pylsl.local_clock()
     tstart = time.time_ns()
 
     # Two while stages for performance
     logger.debug("Starting passthrough loop")
 
     # do the initial delay separately
-    while (
-        time.time_ns() - tstart
-        < config["lsl_outlet"]["initial_delay_s"] * 10**9
-    ):
+    while time.time_ns() - tstart < config["lsl_outlet"]["initial_delay_s"] * 10**9:
         sleep_s(config["lsl_outlet"]["initial_delay_s"] * 0.5)
     logger.debug(f"Initial delay of {config["lsl_outlet"]["initial_delay_s"]=}")
 
     stop_event.clear()
 
-    # Always use the derived loop version for the 
+    # Always use the derived loop version for the
     derived_loop(sw, config, stop_event, outlet)
 
 
@@ -118,8 +109,7 @@ def derived_loop(
     while not stop_event.is_set():
         sw.update()
         req_samples = int(
-            config["lsl_outlet"]["nominal_freq_hz"]
-            * (pylsl.local_clock() - tlast)
+            config["lsl_outlet"]["nominal_freq_hz"] * (pylsl.local_clock() - tlast)
         )
 
         # This is only correct if the nominal_freq_hz is derived from the source stream
