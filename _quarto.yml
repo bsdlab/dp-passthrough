@@ -1,0 +1,36 @@
+project:
+  type: website
+
+website:
+  sidebar:
+    - id: "main"
+      contents:
+        - section: "Documentation"
+          contents:
+            - reference/index.qmd
+
+quartodoc:
+  package: "passthrough_decoder" # name of the package
+  source_dir: "passthrough_decoder" # as the source code is within this folder
+
+  title: "Documentation for the dp-passthrough module"
+
+  options:
+    signature_name: full
+
+  # write sidebar where quartodoc writes its content without impacting quarto
+  sidebar:
+    file: "reference/_passthrough_decoder_sidebar.yml"
+
+  sections:
+    - title: "The passthrough module"
+      desc: |
+        :::{.callout-info}
+        The github repository for this module is located at:
+        [https://github.com/bsdlab/dp-passthrough](https://github.com/bsdlab/dp-passthrough)
+        :::
+      contents:
+        - main.main
+        - main.get_main_thread
+        - main.init_lsl_outlet
+        - main.connect_stream_watcher

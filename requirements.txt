@@ -1,0 +1,5 @@
+dareplane_utils==0.0.18
+fire==0.7.1
+numpy==2.3.2
+pylsl==1.17.6
+scipy==1.16.1

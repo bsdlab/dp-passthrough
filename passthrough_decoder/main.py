@@ -23,6 +23,23 @@ CHANNEL_TO_PASS = 3
 
 
 def init_lsl_outlet(cfg: dict) -> pylsl.StreamOutlet:
+    """
+    Initialize an LSL (Lab Streaming Layer) outlet for the passthrough decoder.
+
+    This function creates an LSL outlet that streams the data from the passthrough decoder
+    as a single-channel stream.
+
+    Parameters
+    ----------
+    cfg : dict
+        Configuration dictionary containing LSL outlet settings. Must include
+        an "lsl_outlet" key with name, type, nominal_freq_hz, and format fields.
+
+    Returns
+    -------
+    pylsl.StreamOutlet
+        The LSL outlet for streaming the controller output.
+    """
     n_channels = 1
     info = pylsl.StreamInfo(
         cfg["lsl_outlet"]["name"],
@@ -46,7 +63,23 @@ def init_lsl_outlet(cfg: dict) -> pylsl.StreamOutlet:
 
 
 def connect_stream_watcher(config: dict) -> StreamWatcher:
-    """Connect the stream watchers"""
+    """
+    Connect to and configure the input stream watcher.
+
+    This function initializes a StreamWatcher to monitor an input LSL stream.
+    If the outlet frequency is set to "derive", the frequency is set equal to the
+    nominal sampling rate of the input stream.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing stream connection settings.
+
+    Returns
+    -------
+    StreamWatcher
+        Connected StreamWatcher instance ready for data monitoring.
+    """
     sw = StreamWatcher(
         config["stream_to_query"]["stream"],
         buffer_size_s=config["stream_to_query"]["buffer_size_s"],
@@ -75,6 +108,25 @@ def connect_stream_watcher(config: dict) -> StreamWatcher:
 def main(
     stop_event: threading.Event = threading.Event(), logger_level: int = 10
 ):
+    """
+    Main processing function for the passthrough decoder.
+
+    This function initializes the LSL outlet and stream watcher, waits for the
+    initial delay, and then starts a loop to process incoming data from the
+    stream watcher. It pushes the processed data to the LSL outlet.
+    The configuration is loaded from "./configs/threshold_controller_config.toml".
+
+    Parameters
+    ----------
+    stop_event : threading.Event, optional
+        Event to signal when to stop the processing loop. Defaults to a new event.
+    logger_level : int, optional
+        Logging level for the logger. Defaults to 10 (DEBUG).
+
+    Returns
+    -------
+    None
+    """
     logger.setLevel(logger_level)
     config = tomllib.load(open("./configs/passthrough_config.toml", "rb"))
     derived = (
@@ -185,6 +237,20 @@ def nominal_srate_loop(
 
 
 def get_main_thread() -> tuple[threading.Thread, threading.Event]:
+    """
+    Run the main processing loop in a separate thread.
+
+    This function creates and starts a background thread that runs the main
+    threshold controller loop. It allows the controller to be stopped via 
+    the returned Event object.
+
+    Returns
+    -------
+    tuple[threading.Thread, threading.Event]
+        A tuple containing:
+        - threading.Thread: The thread object running the controller loop
+        - threading.Event: Event object that can be .set() to stop the controller
+    """
     stop_event = threading.Event()
     stop_event.clear()
 
