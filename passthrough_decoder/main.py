@@ -1,22 +1,18 @@
-import time
 import threading
+import time
 import tomllib
-import pylsl
 
 import numpy as np
-from scipy.signal import decimate
-from fire import Fire
-from dareplane_utils.stream_watcher.lsl_stream_watcher import (
-    StreamWatcher,
-    pylsl_xmlelement_to_dict,
-)
-
+import pylsl
 from dareplane_utils.general.ringbuffer import RingBuffer
 from dareplane_utils.general.time import sleep_s
+from dareplane_utils.stream_watcher.lsl_stream_watcher import (
+    StreamWatcher, pylsl_xmlelement_to_dict)
+from fire import Fire
+from scipy.signal import decimate
 
 from passthrough_decoder.utils.logging import logger
 from passthrough_decoder.utils.time import sleep_s
-
 
 # Start counting at 1
 CHANNEL_TO_PASS = 3
@@ -97,11 +93,13 @@ def main(
         < config["lsl_outlet"]["initial_delay_s"] * 10**9
     ):
         sleep_s(config["lsl_outlet"]["initial_delay_s"] * 0.5)
-    logger.debug(f"Initial delay of {config["lsl_outlet"]["initial_delay_s"]=}")
+    logger.debug(
+        f'Initial delay of {config["lsl_outlet"]["initial_delay_s"]=}'
+    )
 
     stop_event.clear()
 
-    # Always use the derived loop version for the 
+    # Always use the derived loop version for the
     derived_loop(sw, config, stop_event, outlet)
 
 
@@ -130,7 +128,9 @@ def derived_loop(
 
             # push rectified version of data for the AO experiment as we need to limit CPU load for fair benchmarking
             # for s in sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1]:
-            med = np.median(sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1])
+            med = np.median(
+                sw.unfold_buffer()[-sw.n_new :, CHANNEL_TO_PASS - 1]
+            )
             for s in range(req_samples):
                 outlet.push_sample([med])
             sw.n_new = 0
